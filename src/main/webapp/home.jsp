@@ -1,5 +1,18 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.sql.*,com.example.yytfsupportsite.yytf.util.DBUtil"%>
+<%@ page import="java.util.Map" %>
+<%@ page import="java.util.List" %>
+<%!
+    public String escapeHtml(String input) {
+        if (input == null) return "";
+        return input.replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll("\"", "&quot;")
+                .replaceAll("'", "&#x27;");
+    }
+%>
+
 <%
     String birthday = "1867年8月12日";
     request.setAttribute("birthday",birthday);
@@ -21,7 +34,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>永雏塔菲后援会</title>
+    <title>GramTele</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <script>
@@ -46,7 +59,7 @@
         const minutes = Math.floor((diff / (1000 * 60)) % 60);
         const seconds = Math.floor((diff / 1000) % 60);
 
-        let html = "🎂 距离永雏塔菲生日还有 <strong>" + pad(days) + "</strong> 天 ";
+        let html = "距离聊天记录清空还有 <strong>" + pad(days) + "</strong> 天 ";
         html += "<strong>" + pad(hours) + "</strong> 小时 ";
         html += "<strong>" + pad(minutes) + "</strong> 分 ";
         html += "<strong>" + pad(seconds) + "</strong> 秒！";
@@ -68,7 +81,7 @@
             eggBuffer = eggBuffer.slice(-20); // 控制长度
         }
 
-        if (eggBuffer.includes("taffymiao")) {
+        if (eggBuffer.includes("adc")) {
             showEasterEgg();
             eggBuffer = "";  // 重置防止多次触发
         }
@@ -85,16 +98,16 @@
                 transform: translate(-50%, -20%);
                 background-color: #fff0f5;
                 padding: 30px;
-                border: 2px dashed #ff69b4;
+                border: 2px dashed #fb0404;
                 border-radius: 12px;
                 text-align: center;
                 z-index: 9999;
                 font-size: 20px;
                 font-weight: bold;
-                box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+                box-shadow: 0 0 20px rgba(244,2,2,0.5);
                 animation: fadeIn 0.5s ease;
             ">
-                🎊 彩蛋触发成功！<br>“塔菲喵最棒！应援永不停歇！”
+                哇！<br>我们ADC这波真的很霸气耶
             </div>
         `;
         document.body.appendChild(egg);
@@ -113,6 +126,11 @@
 
 
 <body>
+
+<div id="adminConsole" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#fff; border:2px solid #999; border-radius:10px; padding:20px; z-index:9999; box-shadow:0 0 15px rgba(0,0,0,0.3);">
+    <h3 style="margin-bottom:10px; text-align:center;">管理员控制台</h3>
+    <input id="consoleInput" type="text" placeholder="输入命令..." style="padding:8px 10px; width:300px; border-radius:5px; border:1px solid #ccc;">
+</div>
 <!-- 退出登录按钮 -->
 <div style="position: fixed; top: 10px; left: 10px; z-index: 999;">
     <form action="logout" method="get">
@@ -123,64 +141,126 @@
 </div>
 <div style="position: absolute; top: 20px; right: 30px;">
     <form action="profile.jsp" method="get">
-        <input type="submit" value="个人中心" style="padding: 6px 12px; border-radius: 20px; border: none; background-color: #0088cc; color: white; font-weight: bold;">
+        <style>
+            .action-button {
+                padding: 6px 12px;
+                border-radius: 20px;
+                border: none;
+                background-color: #0088cc;
+                color: white;
+                font-weight: bold;
+                margin: 8px 6px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+
+            .action-button:hover {
+                background-color: #005f99;
+            }
+        </style>
+
+        <div style="text-align:center;">
+            <!-- 个人中心 -->
+            <input type="submit" value="个人中心" class="action-button">
+
+
+            <!-- 显示图片 -->
+            <input type="button" value="打赏" class="action-button" onclick="showImagePopup()">
+
+            <!-- 跳转链接 -->
+            <input type="button" value="去异世界" class="action-button" onclick="goToWebsite()">
+        </div>
+
     </form>
 </div>
 
 <div class="container">
     <h2>🎉 欢迎，<%= username %>！</h2>
-    <p style="text-align:center; color:#888;">你已成功加入永雏塔菲后援会 🧁</p>
+    <p style="text-align:center; color:#888;">你已成功登入Gramtele 🧁</p>
     <div id="countdown" style="text-align: center; font-size: 18px; margin: 20px auto; padding: 10px; background-color: #fff8f8; border-radius: 8px; border: 1px solid #ffd6e0;">
-        🎂 正在加载倒计时...
+        正在加载倒计时...
     </div>
 
+    <!--
     <div style="text-align: center; margin-bottom: 20px;">
-        <a href="about.jsp" class="btn-about">了解永雏塔菲</a>
-    </div>
+        <a href="about.jsp" class="btn-about">关于...</a>
+    </div> -->
 
-    <div class="chat-entry">
-        <a href="chat.jsp">💬 进入聊天室</a>
+    <div style="text-align: center; margin-bottom: 10px;">
+        <a href="chat.jsp" class="btn-about">进入聊天室</a>
     </div>
 
 
     <!-- 留言发布表单 -->
+
     <form method="post" action="postMessage">
         <textarea name="content" rows="4" placeholder="说点什么..."></textarea>
         <input type="submit" value="发布">
     </form>
 
+
     <!-- 留言展示区域 -->
+    <%
+        List<Map<String, String>> posts = (List<Map<String, String>>) request.getAttribute("posts");
+        int currentPage = request.getAttribute("currentPage") != null ? (int) request.getAttribute("currentPage") : 1;
+        int totalPages = request.getAttribute("totalPages") != null ? (int) request.getAttribute("totalPages") : 1;
+
+        if (posts == null) {
+            response.sendRedirect("GetPostsServlet?page=1");
+            return;
+        }
+    %>
     <div class="message-board">
         <h3>💬 留言板</h3>
         <ul class="message-list">
             <%
-                Connection conn = DBUtil.getConnection();
-                PreparedStatement ps = conn.prepareStatement(
-                        "SELECT p.*, u.username FROM posts p JOIN users u ON p.user_id = u.id ORDER BY p.created_at DESC"
-                );
-
-
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    int posterId = rs.getInt("user_id");
-                    String posterName = rs.getString("username");
-                    String content = rs.getString("content");
-                    Timestamp time = rs.getTimestamp("created_at");
-
+                for (Map<String, String> post : posts) {
+                    String posterId = post.get("userId");
+                    String posterName = post.get("username");
+                    String content = post.get("content");
+                    String time = post.get("createdAt");
             %>
             <li class="message-item">
                 <div class="username" onclick="showUserOptions(<%= posterId %>, '<%= posterName %>', event)"><%= posterName %></div>
-                <div class="message-content"><%= content %></div>
+                <div class="message-content"><%= escapeHtml(content) %></div>
                 <div class="message-time"><%= time %></div>
             </li>
-
             <%
                 }
-                rs.close();
-                ps.close();
-                conn.close();
             %>
         </ul>
+
+        <div class="pagination" style="margin-top: 20px; text-align: center;">
+            <%
+                // 上一页按钮
+                if (currentPage > 1) {
+            %>
+            <a href="GetPostsServlet?page=<%= currentPage - 1 %>" style="display:inline-block; margin: 0 8px;">« 上一页</a>
+            <%
+                }
+
+                // 中间页码
+                for (int i = 1; i <= totalPages; i++) {
+                    if (i == currentPage) {
+            %>
+            <span style="display:inline-block; margin: 0 5px; font-weight: bold; color: #0070a5;"><%= i %></span>
+            <%
+            } else {
+            %>
+            <a href="GetPostsServlet?page=<%= i %>" style="display:inline-block; margin: 0 5px;"><%= i %></a>
+            <%
+                    }
+                }
+
+                // 下一页按钮
+                if (currentPage < totalPages) {
+            %>
+            <a href="GetPostsServlet?page=<%= currentPage + 1 %>" style="display:inline-block; margin: 0 8px;">下一页 »</a>
+            <%
+                }
+            %>
+        </div>
+
 
         <div id="user-options-popup" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; padding:10px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.2); z-index:1000;">
             <button onclick="reportUser()">举报</button>
@@ -189,19 +269,16 @@
 
         <script>
             let selectedUserId = null;
-
-            // 弹出菜单时记录点击的用户ID
             function showUserOptions(userId, username, event) {
                 selectedUserId = userId;
-
                 const popup = document.getElementById("user-options-popup");
                 popup.style.display = "block";
-                popup.style.left = event.pageX + "px";
-                popup.style.top = event.pageY + "px";
+                const rect = event.target.getBoundingClientRect();
+                popup.style.left = (rect.right + 10) + "px";
+                popup.style.top = (rect.top + window.scrollY) + "px";
             }
 
             function addFriend(friendId) {
-                console.log("添加好友触发，ID=", friendId); // <-- 增加调试
                 if (!friendId || isNaN(friendId)) {
                     alert("❌ 无效的用户ID，无法添加好友！");
                     return;
@@ -216,7 +293,6 @@
                 })
                     .then(response => response.text())
                     .then(text => {
-                        console.log("服务器返回内容：", text);
                         text = text.trim();
                         if (text === 'success') {
                             alert("✅ 添加好友成功！");
@@ -227,51 +303,116 @@
                         }
                     })
                     .catch(error => {
-                        console.error("添加好友请求失败：", error);
                         alert("⚠️ 请求失败！");
                     });
             }
         </script>
+    </div>
 
-        </div>
+    <script>
 
-        <script>
+        function reportUser() {
+            alert("已收到举报，我们将尽快处理！");
+            document.getElementById("user-options-popup").style.display = "none";
+        }
 
-            function reportUser() {
-                alert("已收到举报，我们将尽快处理！");
-                document.getElementById("user-options-popup").style.display = "none";
+        // 点击外部关闭弹窗
+        document.addEventListener("click", function(e) {
+            const popup = document.getElementById("user-options-popup");
+            if (!popup.contains(e.target) && !e.target.classList.contains("username")) {
+                popup.style.display = "none";
             }
-
-            // 点击外部关闭弹窗
-            document.addEventListener("click", function(e) {
-                const popup = document.getElementById("user-options-popup");
-                if (!popup.contains(e.target) && !e.target.classList.contains("username")) {
-                    popup.style.display = "none";
-                }
-            });
-        </script>
+        });
+    </script>
 
 
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="quiz.jsp" class="btn-about">🎮 粉丝知识小测试</a>
-        </div>
-
-
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="quiz.jsp" class="btn-about">知识问答</a>
     </div>
-    <!-- 应援图墙区域 -->
-    <div class="gallery-section">
-        <h3 style="text-align: center; margin-top: 40px;">📷 粉丝应援图墙</h3>
-        <div class="image-gallery">
-            <!-- 你可以在这里添加图片 -->
-            <img src="images/taffy1.jpg" alt="应援图1">
-            <img src="images/taffy2.jpg" alt="应援图2">
-            <img src="images/taffy3.jpg" alt="应援图3">
-            <!-- 更多图片可以继续添加 -->
-        </div>
-    </div>
+
+
 
 
 
 </div>
+
+
+
+<!-- 图片弹出框 -->
+<div id="imagePopup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:#fff; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.3); z-index:10000;">
+    <img src="images/IMG_4120.JPG" alt="示例图片" style="max-width:100%; max-height:80vh;">
+    <div style="text-align:center; margin-top:10px;">
+        <button onclick="closeImagePopup()" style="padding: 6px 12px; border-radius: 20px; border: none; background-color: #666; color: white; font-weight: bold;">关闭</button>
+    </div>
+</div>
+
+<script>
+    function showImagePopup() {
+        document.getElementById("imagePopup").style.display = "block";
+    }
+    function closeImagePopup() {
+        document.getElementById("imagePopup").style.display = "none";
+    }
+    function goToWebsite() {
+        window.location.href = "https://vdse.bdstatic.com/192d9a98d782d9c74c96f09db9378d93.mp4";
+
+    }
+</script>
+
+
+
+
+<script>
+    let consoleActive = false;
+    document.addEventListener("keydown", function(e) {
+        if (!consoleActive) {
+            window._keySequence = (window._keySequence || "") + e.key.toLowerCase();
+            if (window._keySequence.includes("console")) {
+
+                document.getElementById("adminConsole").style.display = "block";
+                setTimeout(() => {
+                    document.getElementById("consoleInput").focus();
+                }, 1000);
+
+                consoleActive = true;
+                window._keySequence = "";
+            }
+        } else if (e.key === "Escape") {
+            document.getElementById("adminConsole").style.display = "none";
+            consoleActive = false;
+        }
+    });
+
+    document.addEventListener("click", function(e) {
+        const popup = document.getElementById("adminConsole");
+        if (consoleActive && !popup.contains(e.target)) {
+            popup.style.display = "none";
+            consoleActive = false;
+        }
+    });
+
+    document.getElementById("consoleInput").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+            const val = this.value.trim().toLowerCase();
+            if (val === "wedding") {
+                window.location.href = "sihuo.jsp";
+            } else if (val.startsWith("admin -")) {
+                const key = val.split("-")[1].trim();
+                if (key === "040623") {
+                    window.location.href = "admin.jsp";
+                } else {
+                    alert("密钥无效");
+                }
+            } else {
+                alert("未知命令");
+            }
+            this.value = "";
+            document.getElementById("adminConsole").style.display = "none";
+            consoleActive = false;
+        }
+    });
+</script>
+
 </body>
 </html>

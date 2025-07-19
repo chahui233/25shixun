@@ -5,16 +5,20 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+import com.example.yytfsupportsite.yytf.websocket.ChatWebSocket;
 
 import java.io.*;
 import java.sql.*;
-import java.util.*;
 
 @WebServlet("/ChatServlet")
 @MultipartConfig
+
 public class ChatServlet extends HttpServlet {
+
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
         request.setCharacterEncoding("UTF-8");
         HttpSession session = request.getSession();
 
@@ -24,7 +28,9 @@ public class ChatServlet extends HttpServlet {
             return;
         }
 
+
         String content = request.getParameter("content");
+        content=sanitize(content);
         String chatWithIdParam = request.getParameter("chatWithId");
         Part imagePart = request.getPart("image");
 
@@ -32,7 +38,11 @@ public class ChatServlet extends HttpServlet {
         boolean hasImage = imagePart != null && imagePart.getSize() > 0;
 
         if (!hasText && !hasImage) {
-            response.sendRedirect("chat.jsp");
+            if (chatWithIdParam != null && !chatWithIdParam.equals("-1")) {
+                response.sendRedirect("chat.jsp?chatWith=" + chatWithIdParam);
+            } else {
+                response.sendRedirect("chat.jsp");
+            }
             return;
         }
 
@@ -43,30 +53,43 @@ public class ChatServlet extends HttpServlet {
             } catch (NumberFormatException ignored) {}
         }
 
+        // 处理图片上传
         String imageUrl = null;
         if (hasImage) {
-            String uploadPath = getServletContext().getRealPath("/") + "chat_images/";
+            // 设置外部持久路径
+            String uploadPath = "/www/chat_images/";
             File uploadDir = new File(uploadPath);
             if (!uploadDir.exists()) uploadDir.mkdirs();
 
+            // 文件名：时间戳 + 原始文件名
             String fileName = System.currentTimeMillis() + "_" + imagePart.getSubmittedFileName();
-            imagePart.write(uploadPath + fileName);
+            String fullPath = uploadPath + fileName;
 
-            imageUrl = "chat_images/" + fileName;
+            // 写入文件
+            imagePart.write(fullPath);
+
+            // 设置返回给前端的访问路径
+            imageUrl = "/chat_images/" + fileName;
         }
 
+
+        // 存入数据库
         try (Connection conn = DBUtil.getConnection()) {
             PreparedStatement ps;
             if (chatWithId == -1) {
+                // 群聊：没有 receiver_id
                 ps = conn.prepareStatement(
-                        "INSERT INTO chat_messages (user_id, content, image_url, timestamp) VALUES (?, ?, ?, NOW())"
+                        "INSERT INTO chat_messages (user_id, content, image_url, timestamp) " +
+                                "VALUES (?, ?, ?, NOW())"
                 );
                 ps.setInt(1, userId);
                 ps.setString(2, hasText ? content : null);
                 ps.setString(3, imageUrl);
             } else {
+                // 私聊：有 receiver_id
                 ps = conn.prepareStatement(
-                        "INSERT INTO chat_messages (user_id, content, image_url, timestamp, receiver_id) VALUES (?, ?, ?, NOW(), ?)"
+                        "INSERT INTO chat_messages (user_id, content, image_url, timestamp, receiver_id) " +
+                                "VALUES (?, ?, ?, NOW(), ?)"
                 );
                 ps.setInt(1, userId);
                 ps.setString(2, hasText ? content : null);
@@ -75,10 +98,32 @@ public class ChatServlet extends HttpServlet {
             }
             ps.executeUpdate();
             ps.close();
+            // 获取发送者昵称和头像
+            String senderName = (String) session.getAttribute("displayName");
+            if (senderName == null) senderName = (String) session.getAttribute("username");
+
+            String avatar = (String) session.getAttribute("avatar");
+            if (avatar == null || avatar.isEmpty()) avatar = "images/taffy1.jpg";
+
+// 当前时间
+            String now = new java.sql.Timestamp(System.currentTimeMillis()).toString();
+
+// 推送消息
+            ChatWebSocket.pushMessage(
+                    userId,
+                    chatWithId == -1 ? null : chatWithId,
+                    senderName,
+                    avatar,
+                    hasText ? content : "",
+                    imageUrl != null ? imageUrl : "",
+                    now
+            );
+
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+        // 重定向回聊天页面
         if (chatWithId == -1) {
             response.sendRedirect("chat.jsp");
         } else {
@@ -86,4 +131,12 @@ public class ChatServlet extends HttpServlet {
         }
     }
 
+    public static String sanitize(String input) {
+        if (input == null) return null;
+        return input.replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll("\"", "&quot;")
+                .replaceAll("'", "&#x27;");
+    }
 }
